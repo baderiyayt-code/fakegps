@@ -1,0 +1,48 @@
+name: Build Android APK
+
+# This triggers the workflow automatically when you push to the 'main' branch
+# or manually from the GitHub Actions tab.
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build Cordova APK
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Get your code from the repository
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      # 2. Set up Java (Required for Android SDK)
+      - name: Setup Java
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      # 3. Set up Node.js (Required for Cordova)
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+
+      # 4. Install Cordova globally on the server
+      - name: Install Cordova
+        run: npm install -g cordova
+
+      # 5. Add Android platform and build the APK
+      - name: Build APK
+        run: |
+          cordova platform add android
+          cordova build android
+
+      # 6. Rename and upload the finished APK so you can download it
+      - name: Upload APK File
+        uses: actions/upload-artifact@v4
+        with:
+          name: gps-camera-app.apk
+          path: platforms/android/app/build/outputs/apk/debug/app-debug.apk
