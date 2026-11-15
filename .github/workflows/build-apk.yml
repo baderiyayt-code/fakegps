@@ -1,7 +1,5 @@
 name: Build Android APK
 
-# This triggers the workflow automatically when you push to the 'main' branch
-# or manually from the GitHub Actions tab.
 on:
   push:
     branches: [ "main" ]
@@ -13,36 +11,41 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1. Get your code from the repository
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      # 2. Set up Java (Required for Android SDK)
       - name: Setup Java
         uses: actions/setup-java@v3
         with:
           distribution: 'temurin'
           java-version: '17'
 
-      # 3. Set up Node.js (Required for Cordova)
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
           node-version: '18'
 
-      # 4. Install Cordova globally on the server
       - name: Install Cordova
         run: npm install -g cordova
 
-      # 5. Add Android platform and build the APK
+      # NEW: Generate the Cordova project wrapper dynamically
+      - name: Create Cordova Project & Copy Files
+        run: |
+          cordova create build-wrapper com.gps.camera GPSCamera
+          rm -rf build-wrapper/www/*
+          # Copy all web files into the Cordova 'www' folder (excluding the wrapper itself)
+          rsync -av --exclude='build-wrapper' --exclude='.git' --exclude='.github' ./ build-wrapper/www/
+
+      # NEW: Run the build commands INSIDE the newly created project folder
       - name: Build APK
+        working-directory: ./build-wrapper
         run: |
           cordova platform add android
           cordova build android
 
-      # 6. Rename and upload the finished APK so you can download it
+      # NEW: Upload from the updated path
       - name: Upload APK File
         uses: actions/upload-artifact@v4
         with:
           name: gps-camera-app.apk
-          path: platforms/android/app/build/outputs/apk/debug/app-debug.apk
+          path: build-wrapper/platforms/android/app/build/outputs/apk/debug/app-debug.apk
