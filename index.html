@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>GPS Map Camera App</title>
+    
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#007bff">
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <!-- Piexifjs for EXIF injection -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/piexifjs/1.0.6/piexif.min.js"></script>
+    
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="header">
+        <h1>GPS Stamp App</h1>
+    </div>
+
+    <div class="container">
+        <div class="card">
+            <label>1. Upload Photo (JPEG only)</label>
+            <input type="file" id="photoUpload" accept="image/jpeg, image/jpg">
+        </div>
+
+        <div class="card">
+            <label>2. Pin Location on Map</label>
+            <div id="map"></div>
+            <div class="coord-display" id="coordDisplay">Lat: 25.212421, Lng: 77.041336</div>
+        </div>
+
+        <div class="card">
+            <label>3. Stamp Text Details</label>
+            <input type="text" id="shortAddress" placeholder="Title (e.g. Niwari, Rajasthan, India 🇮🇳)" value="Niwari, Rajasthan, India 🇮🇳">
+            <input type="text" id="fullAddress" placeholder="Subtitle (e.g. Niwari, Rajasthan 325217...)" value=", Niwari, Rajasthan 325217, India">
+            <input type="text" id="altitude" placeholder="Bottom Text / Altitude (e.g. 160)" value="160">
+        </div>
+
+        <div class="card">
+            <label>4. Date & Time</label>
+            <input type="datetime-local" id="datetimePicker">
+        </div>
+
+        <button id="downloadBtn" disabled>Process & Save Photo</button>
+    </div>
+
+    <script src="app.js"></script>
+    <script>
+        // Register Service Worker for PWA (App Install and Offline Support)
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('sw.js')
+                    .then(reg => console.log('Service Worker registered', reg))
+                    .catch(err => console.log('Service Worker failure', err));
+            });
+        }
+    </script>
+</body>
+</html>
