@@ -7,13 +7,42 @@ const map = L.map('map').setView([selectedLat, selectedLng], 12);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
 const marker = L.marker([selectedLat, selectedLng], { draggable: true }).addTo(map);
 
-marker.on('dragend', (e) => updateCoordinates(e.target.getLatLng().lat, e.target.getLatLng().lng));
-map.on('click', (e) => { marker.setLatLng(e.latlng); updateCoordinates(e.latlng.lat, e.latlng.lng); });
+// Trigger location fetch on drag or click
+marker.on('dragend', (e) => updateLocation(e.target.getLatLng().lat, e.target.getLatLng().lng));
+map.on('click', (e) => { 
+    marker.setLatLng(e.latlng); 
+    updateLocation(e.latlng.lat, e.latlng.lng); 
+});
 
-function updateCoordinates(lat, lng) {
+// Update coordinates and fetch real address automatically
+async function updateLocation(lat, lng) {
     selectedLat = lat;
     selectedLng = lng;
     document.getElementById('coordDisplay').innerText = `Lat: ${lat.toFixed(6)}, Lng: ${lng.toFixed(6)}`;
+    
+    // Auto-update text fields using OpenStreetMap Reverse Geocoding
+    try {
+        document.getElementById('shortAddress').value = "Fetching location...";
+        const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
+        const data = await response.json();
+
+        if (data && data.address) {
+            const city = data.address.city || data.address.town || data.address.village || data.address.county || "";
+            const state = data.address.state || "";
+            const country = data.address.country || "";
+            
+            // Short Title (City, State, Country)
+            const shortArr = [city, state, country].filter(Boolean);
+            document.getElementById('shortAddress').value = shortArr.join(', ') + " 🇮🇳";
+
+            // Full Subtitle Address
+            document.getElementById('fullAddress').value = data.display_name;
+            checkReadyState();
+        }
+    } catch (error) {
+        console.error("Failed to fetch address:", error);
+        document.getElementById('shortAddress').value = "Location not found - enter manually";
+    }
 }
 
 // 2. Form Validation
@@ -50,13 +79,13 @@ document.getElementById('downloadBtn').addEventListener('click', () => {
 
         applyVisualStamp(originalBase64, stampData, (stampedBase64) => {
             const finalImage = injectExifData(stampedBase64, stampData);
-            triggerDownload(finalImage, `stamped_${Date.now()}.jpg`);
+            triggerDownload(finalImage, `IMG_${Date.now()}.jpg`); // Standard naming convention
         });
     };
     reader.readAsDataURL(uploadedFile);
 });
 
-// 4. Canvas Visual Stamp
+// 4. Canvas Visual Stamp (Mimicking the reference layout)
 function applyVisualStamp(imgSrc, data, callback) {
     const img = new Image();
     img.onload = () => {
@@ -74,36 +103,24 @@ function applyVisualStamp(imgSrc, data, callback) {
         const textX = margin + mapWidth;
         const textWidth = canvas.width - textX - margin;
 
-        // Draw Map Background
         ctx.fillStyle = '#dbd9d6';
         ctx.fillRect(margin, stampY, mapWidth, stampHeight);
         
-        // Draw Google Pin
         const pinX = margin + (mapWidth / 2);
         const pinY = stampY + (stampHeight / 2);
         const pinRad = stampHeight * 0.08;
         ctx.fillStyle = '#ea4335';
-        ctx.beginPath();
-        ctx.arc(pinX, pinY - pinRad, pinRad, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.beginPath();
-        ctx.moveTo(pinX - pinRad, pinY - pinRad);
-        ctx.lineTo(pinX + pinRad, pinY - pinRad);
-        ctx.lineTo(pinX, pinY + (pinRad * 1.5));
-        ctx.fill();
+        ctx.beginPath(); ctx.arc(pinX, pinY - pinRad, pinRad, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.moveTo(pinX - pinRad, pinY - pinRad); ctx.lineTo(pinX + pinRad, pinY - pinRad); ctx.lineTo(pinX, pinY + (pinRad * 1.5)); ctx.fill();
         ctx.fillStyle = '#7a1f16';
-        ctx.beginPath();
-        ctx.arc(pinX, pinY - pinRad, pinRad * 0.3, 0, Math.PI * 2);
-        ctx.fill();
+        ctx.beginPath(); ctx.arc(pinX, pinY - pinRad, pinRad * 0.3, 0, Math.PI * 2); ctx.fill();
 
-        // Draw Text Background
         ctx.fillStyle = 'rgba(0, 0, 0, 0.55)';
         ctx.fillRect(textX, stampY, textWidth, stampHeight);
 
-        // Draw Text
         ctx.fillStyle = '#ffffff';
         ctx.textBaseline = 'top';
-        const p = stampHeight * 0.08;
+        const p = stampHeight * 0.08; 
         
         const titleSize = stampHeight * 0.18;
         ctx.font = `500 ${titleSize}px sans-serif`;
@@ -164,9 +181,30 @@ function decimalToRationalDMS(decimal) {
     return [[deg, 1], [min, 1], [Math.round(((minFloat - min) * 60) * 100), 100]];
 }
 
-function triggerDownload(dataUrl, filename) {
+// 7. Force Download to Device "Downloads" Folder
+function triggerDownload(base64Data, filename) {
+    // Convert Base64 string to a raw Blob object
+    const arr = base64Data.split(',');
+    const mime = arr[0].match(/:(.*?);/)[1];
+    const bstr = atob(arr[1]);
+    let n = bstr.length;
+    const u8arr = new Uint8Array(n);
+    while(n--){
+        u8arr[n] = bstr.charCodeAt(n);
+    }
+    const blob = new Blob([u8arr], {type: mime});
+    
+    // Create an Object URL (This forces Android to treat it as a real file download)
+    const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
-    link.href = dataUrl;
+    link.href = url;
     link.download = filename;
+    document.body.appendChild(link);
+    
+    // Trigger download
     link.click();
+    
+    // Clean up memory
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
 }
