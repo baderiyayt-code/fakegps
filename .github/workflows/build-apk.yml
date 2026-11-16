@@ -28,11 +28,14 @@ jobs:
       - name: Install Cordova
         run: npm install -g cordova
 
-      - name: Create Cordova Project & Copy Files
+      - name: Create Cordova Project & Copy Files (Inject Network Permissions)
         run: |
           cordova create build-wrapper com.gps.camera GPSCamera
           rm -rf build-wrapper/www/*
           rsync -av --exclude='build-wrapper' --exclude='.git' --exclude='.github' ./ build-wrapper/www/
+          
+          # Allows the map to load inside the compiled APK
+          sed -i 's/<\/widget>/    <allow-navigation href="*" \/>\n    <allow-intent href="*" \/>\n<\/widget>/g' build-wrapper/config.xml
 
       - name: Build APK (Inject File Plugin)
         working-directory: ./build-wrapper
