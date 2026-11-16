@@ -28,22 +28,19 @@ jobs:
       - name: Install Cordova
         run: npm install -g cordova
 
-      # NEW: Generate the Cordova project wrapper dynamically
       - name: Create Cordova Project & Copy Files
         run: |
           cordova create build-wrapper com.gps.camera GPSCamera
           rm -rf build-wrapper/www/*
-          # Copy all web files into the Cordova 'www' folder (excluding the wrapper itself)
           rsync -av --exclude='build-wrapper' --exclude='.git' --exclude='.github' ./ build-wrapper/www/
 
-      # NEW: Run the build commands INSIDE the newly created project folder
-      - name: Build APK
+      - name: Build APK (Inject File Plugin)
         working-directory: ./build-wrapper
         run: |
+          cordova plugin add cordova-plugin-file
           cordova platform add android
           cordova build android
 
-      # NEW: Upload from the updated path
       - name: Upload APK File
         uses: actions/upload-artifact@v4
         with:
