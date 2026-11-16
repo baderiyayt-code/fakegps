@@ -7,20 +7,14 @@ const map = L.map('map').setView([selectedLat, selectedLng], 12);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
 const marker = L.marker([selectedLat, selectedLng], { draggable: true }).addTo(map);
 
-// Trigger location fetch on drag or click
 marker.on('dragend', (e) => updateLocation(e.target.getLatLng().lat, e.target.getLatLng().lng));
-map.on('click', (e) => { 
-    marker.setLatLng(e.latlng); 
-    updateLocation(e.latlng.lat, e.latlng.lng); 
-});
+map.on('click', (e) => { marker.setLatLng(e.latlng); updateLocation(e.latlng.lat, e.latlng.lng); });
 
-// Update coordinates and fetch real address automatically
+// 2. Fetch Real Address Details Automatically
 async function updateLocation(lat, lng) {
-    selectedLat = lat;
-    selectedLng = lng;
+    selectedLat = lat; selectedLng = lng;
     document.getElementById('coordDisplay').innerText = `Lat: ${lat.toFixed(6)}, Lng: ${lng.toFixed(6)}`;
     
-    // Auto-update text fields using OpenStreetMap Reverse Geocoding
     try {
         document.getElementById('shortAddress').value = "Fetching location...";
         const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
@@ -31,21 +25,18 @@ async function updateLocation(lat, lng) {
             const state = data.address.state || "";
             const country = data.address.country || "";
             
-            // Short Title (City, State, Country)
             const shortArr = [city, state, country].filter(Boolean);
             document.getElementById('shortAddress').value = shortArr.join(', ') + " 🇮🇳";
-
-            // Full Subtitle Address
             document.getElementById('fullAddress').value = data.display_name;
             checkReadyState();
         }
     } catch (error) {
-        console.error("Failed to fetch address:", error);
+        console.error(error);
         document.getElementById('shortAddress').value = "Location not found - enter manually";
     }
 }
 
-// 2. Form Validation
+// 3. Form Validation
 const inputs = ['photoUpload', 'datetimePicker', 'shortAddress', 'fullAddress'];
 inputs.forEach(id => document.getElementById(id).addEventListener('input', checkReadyState));
 
@@ -60,7 +51,7 @@ function checkReadyState() {
     document.getElementById('downloadBtn').disabled = !(uploadedFile && time && title);
 }
 
-// 3. Process Logic
+// 4. Process Logic
 document.getElementById('downloadBtn').addEventListener('click', () => {
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -79,26 +70,24 @@ document.getElementById('downloadBtn').addEventListener('click', () => {
 
         applyVisualStamp(originalBase64, stampData, (stampedBase64) => {
             const finalImage = injectExifData(stampedBase64, stampData);
-            triggerDownload(finalImage, `IMG_${Date.now()}.jpg`); // Standard naming convention
+            triggerDownload(finalImage, `IMG_${Date.now()}.jpg`);
         });
     };
     reader.readAsDataURL(uploadedFile);
 });
 
-// 4. Canvas Visual Stamp (Mimicking the reference layout)
+// 5. Canvas Visual Stamp
 function applyVisualStamp(imgSrc, data, callback) {
     const img = new Image();
     img.onload = () => {
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
-        canvas.width = img.width;
-        canvas.height = img.height;
+        canvas.width = img.width; canvas.height = img.height;
         ctx.drawImage(img, 0, 0);
 
         const margin = canvas.width * 0.02;
         const stampHeight = canvas.height * 0.25; 
         const stampY = canvas.height - stampHeight - margin;
-        
         const mapWidth = stampHeight; 
         const textX = margin + mapWidth;
         const textWidth = canvas.width - textX - margin;
@@ -139,7 +128,7 @@ function applyVisualStamp(imgSrc, data, callback) {
     img.src = imgSrc;
 }
 
-// 5. EXIF Injection
+// 6. EXIF Injection
 function injectExifData(base64Image, data) {
     const latDMS = decimalToRationalDMS(Math.abs(data.lat));
     const lngDMS = decimalToRationalDMS(Math.abs(data.lng));
@@ -154,57 +143,59 @@ function injectExifData(base64Image, data) {
     gps[piexif.GPSIFD.GPSLongitudeRef] = data.lng >= 0 ? "E" : "W";
     gps[piexif.GPSIFD.GPSLongitude] = lngDMS;
 
-    const exifBytes = piexif.dump({"0th": zeroth, "Exif": exif, "GPS": gps});
-    return piexif.insert(exifBytes, base64Image);
+    return piexif.insert(piexif.dump({"0th": zeroth, "Exif": exif, "GPS": gps}), base64Image);
 }
 
-// 6. Formatting Helpers
+// 7. Date & Coordinate Formatters
 function formatDisplayDate(iso) {
-    const d = new Date(iso);
-    const pd = (n) => String(n).padStart(2, '0');
-    let h = d.getHours();
-    const ampm = h >= 12 ? 'PM' : 'AM';
-    h = h % 12 || 12;
+    const d = new Date(iso); const pd = (n) => String(n).padStart(2, '0');
+    let h = d.getHours(); const ampm = h >= 12 ? 'PM' : 'AM'; h = h % 12 || 12;
     return `${pd(d.getDate())}/${pd(d.getMonth()+1)}/${String(d.getFullYear()).slice(-2)} ${pd(h)}:${pd(d.getMinutes())} ${ampm} GMT +05:30`;
 }
-
 function formatExifDate(iso) {
-    const d = new Date(iso);
-    const pd = (n) => String(n).padStart(2, '0');
+    const d = new Date(iso); const pd = (n) => String(n).padStart(2, '0');
     return `${d.getFullYear()}:${pd(d.getMonth()+1)}:${pd(d.getDate())} ${pd(d.getHours())}:${pd(d.getMinutes())}:00`;
 }
-
 function decimalToRationalDMS(decimal) {
-    const deg = Math.floor(decimal);
-    const minFloat = (decimal - deg) * 60;
-    const min = Math.floor(minFloat);
+    const deg = Math.floor(decimal); const minFloat = (decimal - deg) * 60; const min = Math.floor(minFloat);
     return [[deg, 1], [min, 1], [Math.round(((minFloat - min) * 60) * 100), 100]];
 }
 
-// 7. Force Download to Device "Downloads" Folder
+// 8. Smart Download (Native Cordova File Plugin OR Web Browser Blob)
 function triggerDownload(base64Data, filename) {
-    // Convert Base64 string to a raw Blob object
-    const arr = base64Data.split(',');
-    const mime = arr[0].match(/:(.*?);/)[1];
-    const bstr = atob(arr[1]);
-    let n = bstr.length;
-    const u8arr = new Uint8Array(n);
-    while(n--){
-        u8arr[n] = bstr.charCodeAt(n);
+    if (window.cordova) {
+        const b64Data = base64Data.split(',')[1];
+        const byteCharacters = atob(b64Data);
+        const byteArrays = [];
+        for (let offset = 0; offset < byteCharacters.length; offset += 512) {
+            const slice = byteCharacters.slice(offset, offset + 512);
+            const byteNumbers = new Array(slice.length);
+            for (let i = 0; i < slice.length; i++) byteNumbers[i] = slice.charCodeAt(i);
+            byteArrays.push(new Uint8Array(byteNumbers));
+        }
+        const blob = new Blob(byteArrays, { type: 'image/jpeg' });
+
+        window.resolveLocalFileSystemURL(cordova.file.externalRootDirectory + 'Download/', function (dirEntry) {
+            dirEntry.getFile(filename, { create: true, exclusive: false }, function (fileEntry) {
+                fileEntry.createWriter(function (fileWriter) {
+                    fileWriter.onwriteend = () => alert("✅ Photo saved to Downloads folder!");
+                    fileWriter.onerror = (e) => alert("❌ Error saving: " + e.toString());
+                    fileWriter.write(blob);
+                }, (err) => alert("File permission error."));
+            }, (err) => alert("Could not create file."));
+        }, (err) => alert("Could not access Downloads folder."));
+    } else {
+        const arr = base64Data.split(',');
+        const mime = arr[0].match(/:(.*?);/)[1];
+        const bstr = atob(arr[1]);
+        let n = bstr.length; const u8arr = new Uint8Array(n);
+        while(n--) u8arr[n] = bstr.charCodeAt(n);
+        const blob = new Blob([u8arr], {type: mime});
+        
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url; link.download = filename;
+        document.body.appendChild(link); link.click();
+        document.body.removeChild(link); URL.revokeObjectURL(url);
     }
-    const blob = new Blob([u8arr], {type: mime});
-    
-    // Create an Object URL (This forces Android to treat it as a real file download)
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = filename;
-    document.body.appendChild(link);
-    
-    // Trigger download
-    link.click();
-    
-    // Clean up memory
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
 }
